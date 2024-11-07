@@ -1,4 +1,3 @@
-
 #include <WiFi.h>
 #include <PubSubClient.h>
 
@@ -114,7 +113,7 @@ void reconnect() {
 }
 
 float getPressure(byte gpio) {
-  return 1.1;
+  return 1.5;
 }
 
 float getTemperature() {
