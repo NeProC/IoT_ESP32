@@ -8,8 +8,16 @@
 //#include <Adafruit_BME280.h>
 //#include <Adafruit_Sensor.h>
 
-#define WIFI_SSID "Wp5"                     //
-#define WIFI_PASSWORD "12511251"
+//================================================= Библиотеки для ds18b20
+#include <OneWire.h> //---------------
+#include <DallasTemperature.h> //----------
+#define ONE_WIRE_BUS 15//------------ Data wire is connected to GPIO15
+//=================================================
+
+//#define WIFI_SSID "Wp5"                     //
+//#define WIFI_PASSWORD "12511251"
+#define WIFI_SSID "zelhome"                     //Домашняя сеть
+#define WIFI_PASSWORD "ZelenevBaeva"
 
 
 #define MQTT_SERVER "dev.rightech.io"                 
@@ -22,9 +30,9 @@ PubSubClient client(espClient);
 long lastMsg1 = 0;
 long lastMsg2 = 0;
 
-float press1 = 0;
-float press2 = 0;
-float temp1 = -40;
+float press1 = 0.0;
+float press2 = 0.0;
+float temp1  = 0.0;
 
 #define SCREEN_WIDTH 128     // OLED display width, in pixels
 #define SCREEN_HEIGHT 64     // OLED display height, in pixels
@@ -32,6 +40,11 @@ float temp1 = -40;
 #define SCREEN_ADDRESS 0x3D  ///< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
+//-----------------------Setup a oneWire instance to communicate with a OneWire device
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature sensors(&oneWire); // Pass our oneWire reference to Dallas Temperature sensor 
+DeviceAddress sensor1 = { 0x28, 0x3E, 0x8A, 0xDF, 0xF, 0x0, 0x0, 0x52 }; 
 
 void setup() {
   Serial.begin(115200);
@@ -117,7 +130,11 @@ float getPressure(byte gpio) {
 }
 
 float getTemperature() {
-  return 22.3;
+
+//=====================================
+  sensors.requestTemperatures();          //Запрос температурны
+  temp1 = sensors.getTempC(sensor1);      //Получение температуры
+  return temp1;                           //Возвращаем значение полученное с датчика
 }
 
 void publicTopic(String topic, String msg) {
@@ -157,4 +174,23 @@ void loop() {
     Serial.print("Pressure2: ");
     Serial.println(press2);
   }
+//-----------------------Определение адреса DS18B20
+// ROM = 28 D0 E E0 F 0 0 6E        1ый датчик (зеленый)
+// ROM = 28 3E 8A DF F 0 0 52       2ой датчик (синий)
+/*  byte i;
+  byte addr[8];
+  
+  if (!ds.search(addr)) {
+    Serial.println(" No more addresses.");
+    Serial.println();
+    ds.reset_search();
+    delay(250);
+    return;
+  }
+  Serial.print(" ROM =");
+  for (i = 0; i < 8; i++) {
+    Serial.write(' ');
+    Serial.print(addr[i], HEX);
+  }*/
+//----------------------  
 }
