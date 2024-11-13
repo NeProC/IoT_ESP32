@@ -9,18 +9,18 @@
 //#include <Adafruit_Sensor.h>
 
 //================================================= Библиотеки для ds18b20
-#include <OneWire.h> //---------------
-#include <DallasTemperature.h> //----------
-#define ONE_WIRE_BUS 15//------------ Data wire is connected to GPIO15
+#include <OneWire.h>            //---------------
+#include <DallasTemperature.h>  //----------
+#define ONE_WIRE_BUS 15         //------------ Data wire is connected to GPIO15
 //=================================================
 
-//#define WIFI_SSID "Wp5"                     //
+//#define WIFI_SSID "Wp5"  //
 //#define WIFI_PASSWORD "12511251"
 #define WIFI_SSID "zelhome"                     //Домашняя сеть
 #define WIFI_PASSWORD "ZelenevBaeva"
 
 
-#define MQTT_SERVER "dev.rightech.io"                 
+#define MQTT_SERVER "dev.rightech.io"
 #define MQTT_PORT 1883
 #define MQTT_CLIENT_ID "myESP32Client"
 
@@ -32,7 +32,7 @@ long lastMsg2 = 0;
 
 float press1 = 0.0;
 float press2 = 0.0;
-float temp1  = 0.0;
+float temp1 = 0.0;
 
 #define SCREEN_WIDTH 128     // OLED display width, in pixels
 #define SCREEN_HEIGHT 64     // OLED display height, in pixels
@@ -43,15 +43,15 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 //-----------------------Setup a oneWire instance to communicate with a OneWire device
 OneWire oneWire(ONE_WIRE_BUS);
-DallasTemperature ds(&oneWire); // Pass our oneWire reference to Dallas Temperature sensor 
+DallasTemperature ds(&oneWire);  // Pass our oneWire reference to Dallas Temperature sensor
 
 void setup() {
   Serial.begin(115200);
   //дисплей
   if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
     Serial.println(F("SSD1306 allocation failed"));
-//DEBUG    for (;;)
-//DEBUG      ;  // Don't proceed, loop forever
+    //DEBUG    for (;;)
+    //DEBUG      ;  // Don't proceed, loop forever
   }
   display.display();
 
@@ -72,7 +72,7 @@ void printDisplay(String text, byte x, byte y, byte textsize, byte color) {
 
 
 void setup_wifi() {
-  delay(10);
+  //delay(10);
   // We start by connecting to a WiFi network
   Serial.println();
   Serial.print("Connecting to ");
@@ -89,7 +89,7 @@ void setup_wifi() {
   Serial.println("WiFi connected");
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
-  printDisplay(String("WiFi connected\n IP: ") + WiFi.localIP(), 10, 0, 1, SSD1306_WHITE);
+  //printDisplay(String("WiFi connected\n IP: ") + WiFi.localIP(), 10, 0, 1, SSD1306_WHITE);
 }
 
 void callback(char* topic, byte* message, unsigned int length) {
@@ -134,22 +134,21 @@ float getTemperature() {
   ds.begin();
   byte ds18b20_count = ds.getDeviceCount();
 
-  ds.requestTemperatures(); // запросили обновить температуру у датчиков
-  for (int i = 0; i < ds18b20_count; i++) { // цикл по найденным датчикам. У нас один.
+  ds.requestTemperatures();                  // запросили обновить температуру у датчиков
+  for (int i = 0; i < ds18b20_count; i++) {  // цикл по найденным датчикам. У нас один.
     DeviceAddress tempDeviceAddress;
-    if (ds.getAddress(tempDeviceAddress, i)) // если определили его адрес, значит живой датчик
+    if (ds.getAddress(tempDeviceAddress, i))  // если определили его адрес, значит живой датчик
     {
-      res = ds.getTempC(tempDeviceAddress); // по найденному адресу запрашиваем его температуру
-      break; // цикл можно закончить, т.к. у нас один датчик
+      res = ds.getTempC(tempDeviceAddress);  // по найденному адресу запрашиваем его температуру
+      break;                                 // цикл можно закончить, т.к. у нас один датчик
     }
   }
 
   // убедились, что значение с датчика в нужно диаппазоне от 125 до -55.
   if ((res > 125) or (res < -55)) {
-    res = -55; // если не в диаппазоне, то -55 выдаем, ака ошибка.
+    res = -55;  // если не в диаппазоне, то -55 выдаем, ака ошибка.
   }
   return res;
-
 }
 
 void publicTopic(String topic, String msg) {
@@ -165,7 +164,7 @@ void loop() {
   if (!client.connected()) {
     reconnect();
   }
-  client.loop();
+
 
   long now = millis();
   if (now - lastMsg1 > 10000) {  // шлем топики в mqtt раз в 10 секунд
@@ -189,10 +188,10 @@ void loop() {
     Serial.print("Pressure2: ");
     Serial.println(press2);
   }
-//-----------------------Определение адреса DS18B20
-// ROM = 28 D0 E E0 F 0 0 6E        1ый датчик (зеленый)
-// ROM = 28 3E 8A DF F 0 0 52       2ой датчик (синий)
-/*  byte i;
+  //-----------------------Определение адреса DS18B20
+  // ROM = 28 D0 E E0 F 0 0 6E        1ый датчик (зеленый)
+  // ROM = 28 3E 8A DF F 0 0 52       2ой датчик (синий)
+  /*  byte i;
   byte addr[8];
   
   if (!ds.search(addr)) {
@@ -207,5 +206,5 @@ void loop() {
     Serial.write(' ');
     Serial.print(addr[i], HEX);
   }*/
-//----------------------  
+  //----------------------
 }
