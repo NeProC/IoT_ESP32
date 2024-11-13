@@ -43,8 +43,7 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 //-----------------------Setup a oneWire instance to communicate with a OneWire device
 OneWire oneWire(ONE_WIRE_BUS);
-DallasTemperature sensors(&oneWire); // Pass our oneWire reference to Dallas Temperature sensor 
-DeviceAddress sensor1 = { 0x28, 0x3E, 0x8A, 0xDF, 0xF, 0x0, 0x0, 0x52 }; 
+DallasTemperature ds(&oneWire); // Pass our oneWire reference to Dallas Temperature sensor 
 
 void setup() {
   Serial.begin(115200);
@@ -129,12 +128,28 @@ float getPressure(byte gpio) {
   return 1.5;
 }
 
+// возвращает зачение первого найденного датчика
 float getTemperature() {
+  float res = -55;  // в этой переменной будет результат
+  ds.begin();
+  byte ds18b20_count = ds.getDeviceCount();
 
-//=====================================
-  sensors.requestTemperatures();          //Запрос температурны
-  temp1 = sensors.getTempC(sensor1);      //Получение температуры
-  return temp1;                           //Возвращаем значение полученное с датчика
+  ds.requestTemperatures(); // запросили обновить температуру у датчиков
+  for (int i = 0; i < ds18b20_count; i++) { // цикл по найденным датчикам. У нас один.
+    DeviceAddress tempDeviceAddress;
+    if (ds.getAddress(tempDeviceAddress, i)) // если определили его адрес, значит живой датчик
+    {
+      res = ds.getTempC(tempDeviceAddress); // по найденному адресу запрашиваем его температуру
+      break; // цикл можно закончить, т.к. у нас один датчик
+    }
+  }
+
+  // убедились, что значение с датчика в нужно диаппазоне от 125 до -55.
+  if ((res > 125) or (res < -55)) {
+    res = -55; // если не в диаппазоне, то -55 выдаем, ака ошибка.
+  }
+  return res;
+
 }
 
 void publicTopic(String topic, String msg) {
