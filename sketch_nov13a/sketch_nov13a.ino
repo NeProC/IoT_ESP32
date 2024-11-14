@@ -5,10 +5,12 @@
 #include "OneWire.h"
 #include "DallasTemperature.h"
 
-#define TIME_TO_SLEEP 10           //Time ESP32 will go to sleep (in seconds)
-#define S_To_uS_Factor 1000000ULL  //Conversion factor for micro seconds to seconds
-#define GERKON_PIN 4          // пин геркона
-#define GERKON_LOGIC_ON HIGH  // логический уровень для включения экрана
+#define TIME_TO_SLEEP 10                                            //Time ESP32 will go to sleep (in seconds)
+#define S_To_uS_Factor 1000000ULL                                   //Conversion factor for micro seconds to seconds
+#define GERKON_PIN 4                                                // пин геркона
+#define GERKON_LOGIC_ON HIGH                                        // логический уровень для включения экрана
+#define PRESS_PIN1 35
+#define PRESS_PIN2 36
 
 //#define WIFI_SSID "Wp5"                                           //
 //#define WIFI_PASSWORD "12511251"
@@ -23,17 +25,17 @@
 #define MQTT_PORT 1883
 #define MQTT_CLIENT_ID "myESP32Client"
 
-#define SCREEN_WIDTH 128     // OLED display width, in pixels
-#define SCREEN_HEIGHT 64     // OLED display height, in pixels
-#define OLED_RESET -1        // Reset pin # (or -1 if sharing Arduino reset pin)
-#define SCREEN_ADDRESS 0x3D  ///< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
+#define SCREEN_WIDTH 128                                             // OLED display width, in pixels
+#define SCREEN_HEIGHT 64                                             // OLED display height, in pixels
+#define OLED_RESET -1                                                // Reset pin # (or -1 if sharing Arduino reset pin)
+#define SCREEN_ADDRESS 0x3D                                          //< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-OneWire oneWire(15);                                                //шина 1-wire к gpio15
-DallasTemperature ds(&oneWire);                                     // инициализация объекта для ds18b20
+OneWire oneWire(15);                                                 //шина 1-wire к gpio15
+DallasTemperature ds(&oneWire);                                      // инициализация объекта для ds18b20
 
 float press1 = 0.0;
 float press2 = 0.0;
@@ -45,7 +47,8 @@ void setup()
     pinMode(GERKON_PIN, INPUT_PULLUP);
 
     temp1 = getTemperature();
-    press1 = getPressure(35);
+    press1 = getPressure(PRESS_PIN1);
+    press2 = getPressure(PRESS_PIN2);
 
     Serial.print("Temp: ");
     Serial.println(temp1);
