@@ -60,7 +60,16 @@ void setup() {
 }
 
 void loop() {
-  long now = millis();                                                 // тут определяем время работы контроллера в милисекундах от включения
+  long now = millis();
+  // тут определяем время работы контроллера в милисекундах от включения
+
+  if (digitalRead(GERKON_PIN) == GERKON_LOGIC_ON) {
+    display.ssd1306_command(SSD1306_DISPLAYON);
+  }
+  else{
+    display.ssd1306_command(SSD1306_DISPLAYOFF);
+  }
+
   if ((now - lastMsg1 > (TIME_TO_SLEEP * 1000)) or (lastMsg1 == 0)) {  // шлем топики в mqtt раз в 10 секунд (в милисекундах 10 * 1000) . т.е. некий таймер организуем через такие конструкции
     lastMsg1 = now;                                                    //
 
@@ -93,6 +102,7 @@ void loop() {
     }
 
     if (digitalRead(GERKON_PIN) != GERKON_LOGIC_ON) {
+      display.ssd1306_command(SSD1306_DISPLAYOFF);
       //Set timer to 5 seconds
       esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * S_To_uS_Factor);
       Serial.println("Setup ESP32 to sleep for every " + String(TIME_TO_SLEEP) + " Seconds");
