@@ -9,6 +9,7 @@
 #define S_To_uS_Factor 1000000ULL  //Conversion factor for micro seconds to seconds
 #define GERKON_PIN 4               // пин геркона
 #define GERKON_LOGIC_ON LOW       // логический уровень для включения экрана
+
 #define PRESS_PIN1 35
 #define PRESS_PIN2 36
 
@@ -49,11 +50,12 @@ long lastMsg1 = 0;
 void setup() {
   Serial.begin(115200);
   pinMode(GERKON_PIN, INPUT_PULLUP);
+  //TODO MOSFET OLED OFF
 }
 
 void loop() {
   long now = millis();                                                // тут определяем время работы контроллера в милисекундах от включения
-  if ((now - lastMsg1 > (TIME_TO_SLEEP * 000)) or (lastMsg1 == 0)) {  // шлем топики в mqtt раз в 10 секунд (в милисекундах 10 * 1000) . т.е. некий таймер организуем через такие конструкции
+  if ((now - lastMsg1 > (TIME_TO_SLEEP * 1000)) or (lastMsg1 == 0)) {  // шлем топики в mqtt раз в 10 секунд (в милисекундах 10 * 1000) . т.е. некий таймер организуем через такие конструкции
     lastMsg1 = now;                                                   //
 
     temp1 = getTemperature();
@@ -68,7 +70,7 @@ void loop() {
     Serial.println(press2);
 
     if (digitalRead(GERKON_PIN) == GERKON_LOGIC_ON) {
-      // тут где-то решаем, включать или нет диспл
+      //TODO MOSFET oled ON
       if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
         Serial.println(F("SSD1306 allocation failed"));
         //for (;;)
@@ -79,13 +81,15 @@ void loop() {
       todisplay = todisplay + "Press2: " + String(press2);
       printDisplay(todisplay, 10, 0, 1, SSD1306_WHITE);
     }
+    else{
+      //TODO MOSFET oled OFF
+    }
 
-    if ((press1 > 2.2) or (press2 > 3.3)) {
-      // тут где-то решаем слать или не слать
+    if ((press1 > 2.2) or (press2 > 3.3)) { если давление какое-то, то шлем в сеть данные
       sendWiFi();
     }
 
-    if (digitalRead(GERKON_PIN) == GERKON_LOGIC_OFF) {
+    if (digitalRead(GERKON_PIN) != GERKON_LOGIC_ON) {
       //Set timer to 5 seconds
       esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * S_To_uS_Factor);
       Serial.println("Setup ESP32 to sleep for every " + String(TIME_TO_SLEEP) + " Seconds");
