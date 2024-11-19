@@ -8,7 +8,7 @@
 #define TIME_TO_SLEEP 10           //Time ESP32 will go to sleep (in seconds)
 #define S_To_uS_Factor 1000000ULL  //Conversion factor for micro seconds to seconds
 #define GERKON_PIN 4               // пин геркона
-#define GERKON_LOGIC_ON LOW       // логический уровень для включения экрана
+#define GERKON_LOGIC_ON LOW        // логический уровень для включения экрана
 
 #define PRESS_PIN1 35
 #define PRESS_PIN2 36
@@ -51,12 +51,18 @@ void setup() {
   Serial.begin(115200);
   pinMode(GERKON_PIN, INPUT_PULLUP);
   //TODO MOSFET OLED OFF
+
+  if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
+    Serial.println(F("SSD1306 allocation failed"));
+    //for (;;)
+    //;  // Don't proceed, loop forever
+  }
 }
 
 void loop() {
-  long now = millis();                                                // тут определяем время работы контроллера в милисекундах от включения
+  long now = millis();                                                 // тут определяем время работы контроллера в милисекундах от включения
   if ((now - lastMsg1 > (TIME_TO_SLEEP * 1000)) or (lastMsg1 == 0)) {  // шлем топики в mqtt раз в 10 секунд (в милисекундах 10 * 1000) . т.е. некий таймер организуем через такие конструкции
-    lastMsg1 = now;                                                   //
+    lastMsg1 = now;                                                    //
 
     temp1 = getTemperature();
     press1 = getPressure(PRESS_PIN1);
@@ -71,21 +77,18 @@ void loop() {
 
     if (digitalRead(GERKON_PIN) == GERKON_LOGIC_ON) {
       //TODO MOSFET oled ON
-      if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
-        Serial.println(F("SSD1306 allocation failed"));
-        //for (;;)
-        //;  // Don't proceed, loop forever
-      }
+      display.ssd1306_command(SSD1306_DISPLAYON);
       String todisplay = "Temp: " + String(temp1) + "\n";
       todisplay = todisplay + "Press1: " + String(press1) + "\n";
       todisplay = todisplay + "Press2: " + String(press2);
       printDisplay(todisplay, 10, 0, 1, SSD1306_WHITE);
-    }
-    else{
+    } else {
       //TODO MOSFET oled OFF
+      display.ssd1306_command(SSD1306_DISPLAYOFF);
     }
 
-    if ((press1 > 2.2) or (press2 > 3.3)) { если давление какое-то, то шлем в сеть данные
+    if ((press1 > 2.2) or (press2 > 3.3)) {
+      // если давление какое - то, то шлем в сеть данные
       sendWiFi();
     }
 
@@ -176,6 +179,8 @@ float getPressure(byte gpio) {
   Serial.print(current_volt);
   Serial.print(" bar=");
   Serial.println(bar);
+
+  if (bar < 0) return 0;  // что б минуса не было, например когда датчик не подключен
 
   return bar;
 }
