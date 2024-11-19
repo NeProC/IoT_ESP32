@@ -51,12 +51,13 @@ void setup() {
   Serial.begin(115200);
   pinMode(GERKON_PIN, INPUT_PULLUP);
   //TODO MOSFET OLED OFF
-
+/*
   if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
     Serial.println(F("SSD1306 allocation failed"));
     //for (;;)
     //;  // Don't proceed, loop forever
   }
+  */
 }
 
 void loop() {
@@ -65,8 +66,7 @@ void loop() {
 
   if (digitalRead(GERKON_PIN) == GERKON_LOGIC_ON) {
     display.ssd1306_command(SSD1306_DISPLAYON);
-  }
-  else{
+  } else {
     display.ssd1306_command(SSD1306_DISPLAYOFF);
   }
 
@@ -86,6 +86,7 @@ void loop() {
 
     if (digitalRead(GERKON_PIN) == GERKON_LOGIC_ON) {
       //TODO MOSFET oled ON
+      display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS);
       display.ssd1306_command(SSD1306_DISPLAYON);
       String todisplay = "Temp: " + String(temp1) + "\n";
       todisplay = todisplay + "Press1: " + String(press1) + "\n";
