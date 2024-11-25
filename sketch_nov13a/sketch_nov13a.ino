@@ -93,6 +93,7 @@ void loop() {
     todisplay = todisplay + "Press2: " + String(press2);
     printDisplay(todisplay, 10, 0, 1, SSD1306_WHITE);
   } else {
+    display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS,false);
     display.ssd1306_command(SSD1306_DISPLAYOFF);
   }
   esp_sleep_enable_timer_wakeup(MEASURE_INTERVAL * S_To_uS_Factor);
