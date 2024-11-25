@@ -5,10 +5,18 @@
 #include "OneWire.h"
 #include "DallasTemperature.h"
 
-#define TIME_TO_SLEEP 10           //Time ESP32 will go to sleep (in seconds)
+#define N_CONSTANT 2           // разница давлений для выполнения условия
+
 #define S_To_uS_Factor 1000000ULL  //Conversion factor for micro seconds to seconds
-#define GERKON_PIN 4               // пин геркона
-#define GERKON_LOGIC_ON LOW        // логический уровень для включения экрана
+#define MEASURE_INTERVAL 10     //Time ESP32 will go to sleep (in seconds) \
+                               //интервал чтения датчиков
+#define SEND_WIFI_INTERVAL 600  // интервал отправки данных по wifi, если ничего не происзодит
+
+RTC_DATA_ATTR int bootCount = 0;
+
+
+#define GERKON_PIN 4         // пин геркона
+#define GERKON_LOGIC_ON LOW  // логический уровень для включения экрана
 
 #define PRESS_PIN1 35
 #define PRESS_PIN2 36
@@ -43,75 +51,54 @@ float press2 = 0.0;
 float temp1 = 0.0;
 
 
-long lastMsg1 = 0;
-
-
-
 void setup() {
   Serial.begin(115200);
   pinMode(GERKON_PIN, INPUT_PULLUP);
-  //TODO MOSFET OLED OFF
-/*
-  if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
-    Serial.println(F("SSD1306 allocation failed"));
-    //for (;;)
-    //;  // Don't proceed, loop forever
-  }
-  */
+  bootCount++;
 }
 
 void loop() {
-  long now = millis();
-  // тут определяем время работы контроллера в милисекундах от включения
+
+  temp1 = getTemperature();
+  press1 = getPressure(PRESS_PIN1);
+  press2 = getPressure(PRESS_PIN2);
+
+  Serial.print("Temp: ");
+  Serial.println(temp1);
+  Serial.print("Pressure1: ");
+  Serial.println(press1);
+  Serial.print("Pressure2: ");
+  Serial.println(press2);
+
+  // проверка давления P1>=N*P2
+  if (press1 >= press2 * N_CONSTANT) {
+    // если условие выполнилось, что подключаемся к wifi и шлем данные на сервер
+    Serial.print("SEND WIFI BY PRESS !!!");
+    bootCount = 0;
+    sendWiFi();
+  } else {
+    if (bootCount * MEASURE_INTERVAL > SEND_WIFI_INTERVAL) {
+      Serial.print("SEND WIFI BY TIME!!!");
+      bootCount = 0;
+      sendWiFi();
+    }
+  }
 
   if (digitalRead(GERKON_PIN) == GERKON_LOGIC_ON) {
+    //oled ON
+    display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS);
     display.ssd1306_command(SSD1306_DISPLAYON);
+    String todisplay = "Temp: " + String(temp1) + "\n";
+    todisplay = todisplay + "Press1: " + String(press1) + "\n";
+    todisplay = todisplay + "Press2: " + String(press2);
+    printDisplay(todisplay, 10, 0, 1, SSD1306_WHITE);
   } else {
     display.ssd1306_command(SSD1306_DISPLAYOFF);
   }
-
-  if ((now - lastMsg1 > (TIME_TO_SLEEP * 1000)) or (lastMsg1 == 0)) {  // шлем топики в mqtt раз в 10 секунд (в милисекундах 10 * 1000) . т.е. некий таймер организуем через такие конструкции
-    lastMsg1 = now;                                                    //
-
-    temp1 = getTemperature();
-    press1 = getPressure(PRESS_PIN1);
-    press2 = getPressure(PRESS_PIN2);
-
-    Serial.print("Temp: ");
-    Serial.println(temp1);
-    Serial.print("Pressure1: ");
-    Serial.println(press1);
-    Serial.print("Pressure2: ");
-    Serial.println(press2);
-
-    if (digitalRead(GERKON_PIN) == GERKON_LOGIC_ON) {
-      //TODO MOSFET oled ON
-      display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS);
-      display.ssd1306_command(SSD1306_DISPLAYON);
-      String todisplay = "Temp: " + String(temp1) + "\n";
-      todisplay = todisplay + "Press1: " + String(press1) + "\n";
-      todisplay = todisplay + "Press2: " + String(press2);
-      printDisplay(todisplay, 10, 0, 1, SSD1306_WHITE);
-    } else {
-      //TODO MOSFET oled OFF
-      display.ssd1306_command(SSD1306_DISPLAYOFF);
-    }
-
-    if ((press1 > 2.2) or (press2 > 3.3)) {
-      // если давление какое - то, то шлем в сеть данные
-      sendWiFi();
-    }
-
-    if (digitalRead(GERKON_PIN) != GERKON_LOGIC_ON) {
-      display.ssd1306_command(SSD1306_DISPLAYOFF);
-      //Set timer to 5 seconds
-      esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * S_To_uS_Factor);
-      Serial.println("Setup ESP32 to sleep for every " + String(TIME_TO_SLEEP) + " Seconds");
-
-      //Go to sleep now
-      esp_deep_sleep_start();
-    }
-  }
+  esp_sleep_enable_timer_wakeup(MEASURE_INTERVAL * S_To_uS_Factor);
+  Serial.println("Setup ESP32 to sleep for every " + String(MEASURE_INTERVAL) + " Seconds");
+  //Go to sleep now
+  esp_deep_sleep_start();
 }
 
 
@@ -209,11 +196,7 @@ float getTemperature()  // возвращает зачение первого н
       break;                                   // цикл можно закончить, т.к. у нас один датчик
     }
   }
-  // убедились, что значение с датчика в нужно диаппазоне от 125 до -55.
-  if ((temp1 > 125) or (temp1 < -55)) {
-    temp1 = -55;  // если не в диаппазоне, то -55 выдаем, ака ошибка.
-  }
-  return temp1;
+  return constrain(temp1, -55, 125);
 }
 
 void publicTopic(String topic, String msg) {
