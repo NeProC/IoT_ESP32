@@ -13,13 +13,19 @@
 #define SEND_WIFI_INTERVAL 600  // интервал отправки данных по wifi, если ничего не происзодит
 
 RTC_DATA_ATTR int bootCount = 0;
+int lcd_flag = 0;
 
 
 #define GERKON_PIN 4         // пин геркона
 #define GERKON_LOGIC_ON LOW  // логический уровень для включения экрана
 
-#define PRESS_PIN1 35
-#define PRESS_PIN2 36
+#define PRESS_PIN1 34
+#define PRESS_PIN2 35
+
+#define MIN_VOLT_BAR 0.33
+#define MIN_BAR      1.034
+#define MAX_VOLT_BAR 3.30
+#define MAX_BAR      10.342
 
 //#define WIFI_SSID "Wp5"                                           //
 //#define WIFI_PASSWORD "12511251"
@@ -34,10 +40,10 @@ RTC_DATA_ATTR int bootCount = 0;
 #define MQTT_PORT 1883
 #define MQTT_CLIENT_ID "myESP32Client"
 
-#define SCREEN_WIDTH 128     // OLED display width, in pixels
-#define SCREEN_HEIGHT 64     // OLED display height, in pixels
-#define OLED_RESET -1        // Reset pin # (or -1 if sharing Arduino reset pin)
-#define SCREEN_ADDRESS 0x3C  //< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
+#define SCREEN_WIDTH 128                                            // OLED display width, in pixels
+#define SCREEN_HEIGHT 64                                            // OLED display height, in pixels
+#define OLED_RESET -1                                               // Reset pin # (or -1 if sharing Arduino reset pin)
+#define SCREEN_ADDRESS 0x3C                                         //< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 WiFiClient espClient;
@@ -55,7 +61,7 @@ void setup()
 {
     Serial.begin(115200);
     pinMode(GERKON_PIN, INPUT_PULLUP);
-    bootCount++;
+//    bootCount++;
 }
 
 void loop() 
@@ -72,29 +78,44 @@ void loop()
     Serial.println(press2);
 
     // проверка давления P1>=N*P2
-    if (press1 >= press2 * N_CONSTANT) 
+    //while (press1 > press2 * N_CONSTANT) 
+    if(press1 > press2 * N_CONSTANT)
     {    // если условие выполнилось, что подключаемся к wifi и шлем данные на сервер
         Serial.print("SEND WIFI BY PRESS !!!");
         bootCount = 0;
         sendWiFi();
-    }
-    else 
-    {
-        if (bootCount * MEASURE_INTERVAL > SEND_WIFI_INTERVAL) 
+        if(digitalRead(GERKON_PIN) == GERKON_LOGIC_ON && lcd_flag == 0)
         {
-            Serial.print("SEND WIFI BY TIME!!!");
-            bootCount = 0;
-            sendWiFi();
+            lcd_flag = 10;
+            display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS);
+            display.ssd1306_command(SSD1306_DISPLAYON);
+            String todisplay = "Temp: " + String(temp1) + " C\n";
+            todisplay = todisplay + "Press1: " + String(press1) + " BAR" + "\n";
+            todisplay = todisplay + "Press2: " + String(press2) + " BAR" + "\n";
+            printDisplay(todisplay, 10, 0, 1, SSD1306_WHITE);
         }
+        lcd_flag--;
+        temp1 = getTemperature();
+        press1 = getPressure(PRESS_PIN1);
+        press2 = getPressure(PRESS_PIN2);
+  
+    }
+    lcd_flag = 0;
+    
+    if (++bootCount * MEASURE_INTERVAL > SEND_WIFI_INTERVAL) 
+    {
+        Serial.print("SEND WIFI BY TIME!!!");
+        bootCount = 0;
+        sendWiFi();
     }
 
     if (digitalRead(GERKON_PIN) == GERKON_LOGIC_ON) 
     {    //oled ON
         display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS);
         display.ssd1306_command(SSD1306_DISPLAYON);
-        String todisplay = "Temp: " + String(temp1) + "\n";
-        todisplay = todisplay + "Press1: " + String(press1) + "\n";
-        todisplay = todisplay + "Press2: " + String(press2);
+        String todisplay = "Temp: " + String(temp1) + " C\n";
+        todisplay = todisplay + "Press1: " + String(press1) + " BAR" + "\n";
+        todisplay = todisplay + "Press2: " + String(press2) + " BAR" + "\n";
         printDisplay(todisplay, 10, 0, 1, SSD1306_WHITE);
     } 
     else 
@@ -168,32 +189,39 @@ void printDisplay(String text, byte x, byte y, byte textsize, byte color)
 
 float getPressure(byte gpio) 
 {
-    uint16_t adc = 0;
+    uint32_t adc = 0;
     for (int i = 0; i < 20; i++) 
     {
         adc += analogRead(gpio);
-        delay(5);
+        delay(2);
     }
-    adc = adc / 20;
+    adc /= 20;
 
-    float etalon_bar = 10.34214;                                            // значение бар при etalon_volt
-    float etalon_volt = 4.5;                                                // значение вольт при etalon_bar
-    float etalon_zero_volt = 0.5;                                           // значение вольт при 0 бар
-                                                                            // в adc значение от 0 до 4095, что соответствует 0 вольт до 3.3в
-    float current_volt = map(adc, 0, 4095, 0, 3.3);
-
-                                                                            //DEBUG float current_volt = 3.3;
-    float bar = etalon_bar * (current_volt - etalon_zero_volt) / (etalon_volt - etalon_zero_volt);
-    Serial.print("gpio=");
+    const float max_bar  = MAX_BAR;                                                // максимальное давление для датчика давления
+    const float max_volt = MAX_VOLT_BAR;                                           // значение в вольтах при максимальном давлении
+    const float atm_bar  = MIN_BAR;                                                // значение атмосферного давления
+    const float min_volt = MIN_VOLT_BAR;                                           // напряжение атмосферного давления
+    
+    //float current_volt = map(adc, 0, 4095, 0, 3.3);                              // в adc значение от 0 до 4095, что соответствует 0 вольт до 3.3в
+    float current_volt = ((float)adc / 4095.0) * 3.3;                              // значение текщего напряжения на АЦП                             
+    //if(current_volt < 0.33)
+    //    return 0;
+    //DEBUG float current_volt = 3.3;
+    
+    //float bar = ((float)current_volt - etalon_zero_volt) / etalon_bar * (etalon_volt - etalon_zero_volt);
+    //float bar = 3.134 * current_volt;
+    float bar = ((((float)current_volt - min_volt) / (max_volt - min_volt)) * (max_bar - atm_bar)) + atm_bar;
+    Serial.print("gpio: ");
     Serial.print(gpio);
-    Serial.print(" adc=");
+    Serial.print(" adc: ");
     Serial.print(adc);
-    Serial.print(" volt=");
+    Serial.print(" volt: ");
     Serial.print(current_volt);
-    Serial.print(" bar=");
+    Serial.print(" bar: ");
     Serial.println(bar);
 
-    if (bar < 0) return 0;                                                  // что б минуса не было, например когда датчик не подключен
+    if (bar < 0) 
+        return 0;                                                  // что б минуса не было, например когда датчик не подключен
 
     return bar;
 }
