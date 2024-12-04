@@ -9,8 +9,8 @@ HardwareSerial sim800(2);  // define a Serial for UART2
 void setup() {
   Serial.begin(9600);  // Скорость обмена данными с компьютером
   Serial.println("Start!");
-//  sim800.begin(9600);  // Скорость обмена данными с GSM модулем
-   sim800.begin(9600, SERIAL_8N1, 16, 17);
+  //  sim800.begin(9600);  // Скорость обмена данными с GSM модулем
+  sim800.begin(9600, SERIAL_8N1, 16, 17);
   sim800.println("AT");
 }
 
